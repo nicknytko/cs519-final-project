@@ -1,0 +1,118 @@
+<html>
+    <head>
+        <!-- deck.gl standalone bundle -->
+        <script src="https://unpkg.com/deck.gl@^8.6.0-alpha.0/dist.min.js"></script>
+        <script src="https://unpkg.com/@loaders.gl/obj@^2.3.0/dist/dist.min.js"></script>
+        <script src="https://unpkg.com/@luma.gl/shadertools@latest/dist/dist.min.js"></script>
+
+        <style type="text/css">
+         body {margin: 0; padding: 0;}
+         #container {width: 100vw; height: 100vh;}
+        </style>
+    </head>
+
+    <body>
+        <div id="container"></div>
+    </body>
+
+    <script type="text/javascript">
+     function create_mesh(mesh_file, color) {
+         return new deck.SimpleMeshLayer({
+             id: mesh_file,
+             coordinateSystem: deck.COORDINATE_SYSTEM.IDENTITY,
+             data: [{}],
+             mesh: mesh_file,
+             loaders: [loaders.OBJLoader],
+             getColor: color,
+             getOrientation: [0, -90, 0],
+             getPosition: [-0.16, 14, 0.],
+         })
+     }
+
+     async function ajax_get(path) {
+         return new Promise((res, rej) => {
+             const req = new XMLHttpRequest();
+             req.addEventListener('load', () => res(req.responseText));
+             req.addEventListener('error', rej);
+             req.addEventListener('abort', rej);
+             req.open('GET', path);
+             req.send();
+         });
+     }
+
+     var layers = [
+         create_mesh('/models/bases.obj', [200, 200, 200]),
+         create_mesh('/models/mounds.obj', [248, 188, 160]),
+         create_mesh('/models/lines.obj', [255, 255, 255]),
+         new deck.SimpleMeshLayer({
+             id: 'plane',
+             coordinateSystem: deck.COORDINATE_SYSTEM.IDENTITY,
+             data: [{}],
+             mesh: new luma.PlaneGeometry({type: 'x,y', xlen: 100, ylen: 100}),
+             getPosition: [-0.16, 14, -0.2],
+             getColor: [93, 113, 55],
+         }),
+     ];
+
+     const deckgl = new deck.DeckGL({
+         container: 'container',
+         views: [new deck.OrbitView({fov: 50})],
+         initialViewState: {target: [0, 0, 0], rotationX: 0, rotationOrbit: 45, zoom: 5},
+         controller: true,
+         layers: layers
+     });
+
+     /* home plate 0, -13.831, 0 */
+     /* 1st base 9.112, -5.0643, 0 */
+     /* unit distance - 12.644507617538927, real distance 90ft */
+     const ft_to_unit = (12.644507617538927 / 90.0) / 2.;
+
+     const tab10 = [
+         [12.2, 46.7, 70.6],
+         [100., 49.8, 5.5],
+         [17.3, 62.7, 17.3],
+         [83.9, 15.3, 15.7],
+         [58.0, 40.4, 74.1],
+         [54.9, 33.7, 29.4],
+         [89.0, 46.7, 76.1],
+         [49.8, 49.8, 49.8],
+         [73.7, 74.1, 13.3],
+         [9.0, 74.5, 81.2]
+     ];
+
+     (async () => {
+         let hit_data = await ajax_get('/hits');
+         hit_data = JSON.parse(hit_data);
+         console.log(hit_data)
+         layers.push(
+             new deck.PathLayer({
+                 id: 'arcs',
+                 data: hit_data,
+                 pickable: true,
+                 getPath: d => {
+                     let path = []
+                     for (let i = 0; i < d.x.length; i++) {
+                         path.push([d.x[i] * ft_to_unit, d.y[i] * ft_to_unit, d.z[i] * ft_to_unit]);
+                     }
+                     return path;
+                 },
+                 getWidth: 0.05,
+                 getColor: (d, {index}) => {
+                     return tab10[index % 10];
+                 },
+                 billboard: true,
+             }),
+             new deck.HeatmapLayer({
+                 id: 'heatmap',
+                 data: hit_data,
+                 getPosition: d => {
+                     const n = d.x.length - 1;
+                     return [d.x[n] * ft_to_unit, d.y[n] * ft_to_unit, 0];
+                 },
+                 aggregation: 'SUM',
+             }),
+         );
+         deckgl.setProps({layers});
+     })();
+    </script>
+</html>
