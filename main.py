@@ -10,10 +10,12 @@ with open('assets/derby-data.json', 'r') as f:
     contents = json.load(f)
     hits = contents['hrs']
 
-hit_data = []
+hit_data = {}
 
 for i, hit in enumerate(hits):
+    player_id = hit['playerId']
     trajectoryData = hit['result']['hit']
+    round = hit['round']
     polyx, polyy, polyz, interval = trajectoryData.values()
 
     roots = np.roots(polyz[::-1])
@@ -26,7 +28,20 @@ for i, hit in enumerate(hits):
     y = np.polyval(polyy[::-1], t)
     z = np.polyval(polyz[::-1], t)
 
-    hit_data.append({
+    if not player_id in hit_data:
+        hit_data[player_id] = {
+            'name': hit['playerName'],
+            'num_home_runs': hit['numHomeRuns'],
+            'rounds': {}
+        }
+    
+    if not round in hit_data[player_id]['rounds']:
+        hit_data[player_id]['rounds'][round] = []
+
+    hit_data[player_id]['rounds'][round].append({
+        'metrics': hit['result']['computedMetrics'],
+        'player_id': player_id,
+        'round': round,
         't': t.tolist(),
         'x': x.tolist(),
         'y': y.tolist(),
