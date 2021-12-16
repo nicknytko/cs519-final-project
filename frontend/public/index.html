@@ -5,12 +5,16 @@
         <script src="https://unpkg.com/@loaders.gl/obj@^2.3.0/dist/dist.min.js"></script>
         <script src="https://unpkg.com/@luma.gl/shadertools@latest/dist/dist.min.js"></script>
         <script
-			  src="https://code.jquery.com/jquery-3.6.0.min.js"
-			  integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
-			  crossorigin="anonymous"></script>
+	    src="https://code.jquery.com/jquery-3.6.0.min.js"
+	    integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
+	    crossorigin="anonymous"></script>
 
         <style type="text/css">
-         body {margin: 0; padding: 0;}
+         body {
+             margin: 0;
+             padding: 0;
+             font-family: sans;
+         }
          #container {
             width: 100vw;
             height: 100vh;
@@ -21,6 +25,7 @@
             background-color: bisque;
             padding: 5px;
             text-align: center;
+            box-shadow: 0px 0px 5px black;
         }
         </style>
     </head>
@@ -29,8 +34,13 @@
         <div id="view">
             <div id="buttons">
                 <label for="animate-select" >Animate</label>
-                <input type="checkbox" checked id="animate-select"/>
-                <br>
+                <input type="checkbox" checked id="animate-select"/><br>
+
+                <label for="trails-select" >Show Trails</label>
+                <input type="checkbox" checked id="trails-select"/><br>
+
+                <label for="slices-select" >Show Vertical Slices</label>
+                <input type="checkbox" id="slices-select"/><br>
                 <hr>
                 <button id="replay">Reset</button>
                 <br>
@@ -52,8 +62,11 @@
                     <option value="round">Round</option>
                     <option value="player">Player</option>
                 </select>
+                <br><br>
+                <label for="slice-select">Slice Offset</label><br>
+                <input type="range" min="1" max="500" value="50" id="slice-select">
             </div>
-            
+
             <div id="container"></div>
         </div>
     </body>

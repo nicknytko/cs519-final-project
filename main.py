@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import numpy.linalg as la
 import pandas as pd
 from sanic import Sanic
 from sanic.response import json as sanic_json
@@ -17,6 +18,7 @@ for i, hit in enumerate(hits):
     trajectoryData = hit['result']['hit']
     round = hit['round']
     polyx, polyy, polyz, interval = trajectoryData.values()
+    dx, dy, dz = np.polyder(polyx[::-1]), np.polyder(polyy[::-1]), np.polyder(polyz[::-1])
 
     roots = np.roots(polyz[::-1])
     real_roots = np.real(roots[np.abs(np.imag(roots)) < 1e-8])
@@ -27,6 +29,7 @@ for i, hit in enumerate(hits):
     x = np.polyval(polyx[::-1], t)
     y = np.polyval(polyy[::-1], t)
     z = np.polyval(polyz[::-1], t)
+    speeds = la.norm(np.row_stack((np.polyval(dx, t), np.polyval(dy, t), np.polyval(dz, t))), ord=2, axis=0)
 
     if not player_id in hit_data:
         hit_data[player_id] = {
@@ -34,7 +37,7 @@ for i, hit in enumerate(hits):
             'num_home_runs': hit['numHomeRuns'],
             'rounds': {}
         }
-    
+
     if not round in hit_data[player_id]['rounds']:
         hit_data[player_id]['rounds'][round] = []
 
@@ -45,7 +48,8 @@ for i, hit in enumerate(hits):
         't': t.tolist(),
         'x': x.tolist(),
         'y': y.tolist(),
-        'z': z.tolist()
+        'z': z.tolist(),
+        'speeds': speeds.tolist(),
     })
 
 app = Sanic('Baseball Viz')

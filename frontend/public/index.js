@@ -45,6 +45,17 @@ const deckgl = new deck.DeckGL({
     },
 });
 
+function lerp(a_val, b_val, a_t, b_t, t) {
+    if (t > b_t) {
+        t = b_t;
+    }
+    if (t < a_t) {
+        t = a_t;
+    }
+    t = (t - a_t) / (b_t - a_t);
+    return a_val * (1-t) + b_val * t;
+}
+
 /* home plate 0, -13.831, 0 */
 /* 1st base 9.112, -5.0643, 0 */
 /* unit distance - 12.644507617538927, real distance 90ft */
@@ -62,6 +73,9 @@ var trail_length = 1.0;
 var should_animate = true;
 var cmap_val = "player";
 var player_id_hash = {};
+var out_slice = 20.0;
+var show_trails = true;
+var show_slices = false;
 
 const animation_stagger_mult = 0.05; /* how much the hit animations are delayed. multiplied by the hit index */
 
@@ -125,7 +139,38 @@ function redraw() {
         getColor: return_color,
         updateTriggers: {
             getColor: cmap_val,
-          },
+        },
+        opacity: show_trails ? 1 : 0.01,
+        billboard: true,
+    });
+
+    var slices = new deck.ScatterplotLayer({
+        id: 'heatmap',
+        data: current_data,
+        getPosition: d => {
+            const low = d.slice_low;
+            const high = d.slice_high;
+            const x = lerp(d.x[low], d.x[high], d.y[low], d.y[high], out_slice);
+            const y = lerp(d.y[low], d.y[high], d.y[low], d.y[high], out_slice);
+            const z = lerp(d.z[low], d.z[high], d.y[low], d.y[high], out_slice);
+            return [x * ft_to_unit, y * ft_to_unit, z * ft_to_unit];
+        },
+        getRadius: d => {
+            const low = d.slice_low;
+            const high = d.slice_high;
+            return lerp(d.speeds[low], d.speeds[high], d.y[low], d.y[high], out_slice) / 200.0;
+        },
+        getFillColor: d => {
+            const low = d.slice_low;
+            const high = d.slice_high;
+            const n = lerp(d.speeds[low], d.speeds[high], d.y[low], d.y[high], out_slice) / 200.0;
+            return evaluate_cmap(n, 'YlOrRd', false);
+        },
+        updateTriggers: {
+            getFillColor: out_slice,
+            getPosition: out_slice,
+            getRadius: out_slice,
+        },
         billboard: true,
     });
 
@@ -133,7 +178,7 @@ function redraw() {
         create_mesh('/models/bases.obj', [200, 200, 200]),
         create_mesh('/models/mounds.obj', [248, 188, 160]),
         create_mesh('/models/lines.obj', [255, 255, 255]),
-        
+
         new deck.SimpleMeshLayer({
             id: 'plane',
             coordinateSystem: deck.COORDINATE_SYSTEM.IDENTITY,
@@ -142,8 +187,11 @@ function redraw() {
             getPosition: [-0.16, 88, -0.2],
             getColor: [93, 113, 55],
         }),
-        trips_layer
+        trips_layer,
     ];
+    if (show_slices) {
+        layers.push(slices);
+    }
 
     deckgl.setProps({layers});
 }
@@ -171,7 +219,7 @@ function redraw() {
                 for (const [round, hits] of Object.entries(player.rounds)) {
                     if (round_dropdown != "all" && round != round_dropdown) {
                         continue;
-                    } 
+                    }
                     hits.forEach(hit => current_data.push(hit));
                 }
             });
@@ -181,7 +229,7 @@ function redraw() {
             for (const [round, hits] of Object.entries(hit_data[player_value].rounds)) {
                 if (round_dropdown != "all" && round != round_dropdown) {
                     continue;
-                } 
+                }
                 hits.forEach(hit => current_data.push(hit));
             }
         }
@@ -249,7 +297,7 @@ function redraw() {
     const reset_click = () => {
         time = 0;
     }
-    
+
     $('#player-dropdown').change(player_change);
     $('#round-dropdown').change(data_change);
     $('#replay').click(reset_click);
@@ -273,6 +321,39 @@ function redraw() {
     }
     $('#animate-select').click(animate_checked);
     animate_checked();
+
+    $("#trails-select").click(() => {
+        show_trails = $("#trails-select").is(':checked');
+    });
+    show_trails = $("#trails-select").is(':checked');
+    $("#slices-select").click(() => {
+        show_slices = $("#slices-select").is(':checked');
+    });
+    show_slices = $("#slices-select").is(':checked');
+
+    const compute_x_slice = () => {
+        out_slice = $("#slice-select").val();
+
+        current_data.forEach((hit, idx) => {
+            const n = hit.y.length;
+            let low = 0;
+            let high = n-1;
+
+            while ((high-low) > 1) {
+                const middle = Math.floor((low+high)/2);
+                if (hit.y[middle] < out_slice) {
+                    low = middle;
+                } else if (hit.y[middle] > out_slice) {
+                    high = middle;
+                }
+            }
+
+            hit.slice_low = low;
+            hit.slice_high = high;
+        });
+    };
+    compute_x_slice();
+    $("#slice-select").on('input change', compute_x_slice);
 
     redraw();
     setInterval(redraw, 16);
